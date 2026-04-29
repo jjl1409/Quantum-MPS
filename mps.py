@@ -111,5 +111,120 @@ def mps_decomposition(psi: np.ndarray, p: int, max_bond_dim : int = 0) -> MPS:
 
     return MPS(tensors)
 
+# Convert an MPS to canonical form
+# Bond index gamma corresponds to Schmidt vectors, and lambda vectors contain Schmidt coefficients
+# Takes in MPS and returns a CanonicalMPS
+# Used to calculate entanglement entropy and local expectation values
 
+def mps_to_canonical(mps: MPS) -> CanonicalMPS:
+    n = mps.n
+    tensors = [t.copy() for t in mps.tensors]
+
+    # Iterate from left to right (skipping last one) to get into left-canonical form
+    # Reshape and perform QR decomposition at each site to make left-orthogonal
+    for i in range(N - 1):
+        # a should have shape (d_left, p, d_right)
+        a = tensors[i]
+        d_left, p_dim, d_right = a.shape
+
+        # Reshape to matrix of form (d_left * p) x d_right
+        mat = A.reshape(d_left * p_dim, d_right)
+
+        # Perform QR decomposition and backfill to tensors
+        q, r = np.linalg.qr(mat)
+        new_d = q.shape(1)
+        q = q.reshape(d_left, p_dim, new_d)
+        tensors[i] = q
+
+        # Absorb R into the next tensor
+        # This means tensors(i + 1) has shape (d_right, p, d_right_next)
+        # Sum over j for all i, k, l
+        tensors[i + 1] = np.einsum('ij,jkl->ikl', R, tensors[i + 1])
+
+    # Iterate from right to left to get lambda and gamma
+    gammas = [None] * n
+    lambdas = []
+
+    for i in range(n - 1, 0, -1)
+        # a should have shape (d_left, p, d_right)
+        a = tensors[i]
+        d_left, p_dim, d_right = a.shape
+
+        # Reshape to matrix of form (d_left * p) x d_right
+        mat = A.reshape(d_left * p_dim, d_right)
+
+        # Perform SVD to get u . s . vh
+        # u has shape (m, k), vh has shape (k, n), and s has shape (k) (singular values)
+        u, s, vh = np.linalg.svd(mat, full_matrices = False)
+        
+        # Normalize Schmidt coefficients
+        norm = np.linalg.norm(s)
+        s = s / norm
+
+        d_bond = len(s)
+
+        # Gamma[i] = diag(1/lambda) . vh (reshaped)
+        # First build gammas as vh reshaped, and then handle lambdas
+        gammas[i] = vh.reshape(d_bond, p_dim, d_right)
+        lambdas.insert(0, s)
+
+        # Absorb u . diag(s) into the next tensor (left tensor)
+        # Sum over k for all i, j, l
+        tensors[i - 1] = np.einsum('ijk,lk->ijl', tensors[i - 1], u * s[np.newaxis, :])
+    
+    # Handle the first site gamma
+    a = tensors[0]
+    # Sum over i, j, k of the conjugate
+    norm = np.sqrt(np.einsum('ijk,ijk->', a, np.conj(a)))
+    a = a / norm
+    gammas[0] = a
+
+    return CanonicalMPS(gammas, lambdas)
+
+# Given an MPS, contract all tensors to reconstruct the full state vector
+# Returns a state vector of length p^N
+# Not strictly necessary, but I need a good way to check that my mps conversion is correct
+def mps_to_state (mps: MPS) -> np.ndarray
+
+    n = mps.n
+    p = mps.p
+    # Start with tensor 0, with shape (1, p, d1)
+    result = mps.tensors[0]
+
+    for i in range(1, n):
+        # Result has shape (1, p^i, d_i). Tensors[i] has shape (d_i, p, d_(i + 1))
+        # Goal is to contract over bond index d_i
+        # Sum over j for k, l, etc.
+        result = np.einsum('...j,jkl->...kl', result, mps.tensors[i])
+        # Merge the physical indices together and reshape
+        shape = list(result.shape)
+        # If we have shape (1, p, p, ... , p, D_(i + 1)) we need to merge all middle dimensions into one
+        new_shape = [shape[0], -1, shape[-1]]
+        result = result.reshape(new_shape)
+
+    # Final shape should be (1, p^N, 1) -> flatten to p^n
+    return result.flatten()
+
+# Given a canonical MPS, convert back to statevector
+# Convert partially back to MPS and then call mps_to_state
+
+def canonical_to_state(cmps: CanonicalMPS) -> np.ndarray:
+    n = cmps.n
+
+    # Construct MPS from gamma-lambda with einsum
+    tensors = []
+    for i in range(n):
+        # gammas are constructed as (d_left, p, d_right)
+        g = cmps.gammas[i]
+        # For n - 1 gammas
+        if i < n - 1:
+            l = cmps.lambdas[i]
+            # Reconstruct a(i) from gamma(i) . diag(l(i))
+            # Iterate over all i, j, k
+            a = np.einsum('ijk,k->ijk', g, l)
+        # In the n - 1 gamma case (the rightmost)
+        else:
+            a = g.copy()
+        tensors.append(a)
+    return mps_to_state(MPS(tensors))
 
