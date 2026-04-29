@@ -6,7 +6,7 @@ import numpy as np
 # Represented as C_(i1...iN) = A[0]^(i1) . ... . A[n-1]^(iN)
 # Each A[k]^i is a matrix of size D_(k) x D_(k + 1)
 
- class MPS:
+class MPS:
     # Instantiate MPS with a list of rank-3 tensors (left_bond, physical, right_bond)
     def __init__(self, tensors: list):
         self.tensors = tensors
@@ -53,10 +53,10 @@ class CanonicalMPS:
 # Decompose an N-particle quantum state into MPS using successive SVDs, returning an MPS
 # Successively performs Schmidt decompositions between site 1 and the rest, then site 2 and so on...
 # psi is a state vector of length p^Nn (aka a rank-n tensor with each index of dimension p)
-# p is the physical dimension per site
+# p is the physical dimension per site (Default to 2)
 # max_bond_dim is the maximum bond dimension d, where signular values beyond rank d are discarded.
 # Defaults to 0, which results in exact decomposition
-def mps_decomposition(psi: np.ndarray, p: int, max_bond_dim : int = 0) -> MPS:
+def mps_decomposition(psi: np.ndarray, p: int = 2, max_bond_dim : int = 0) -> MPS:
     # Total dimensions should be p * n
     total_dim = np.prod(psi.shape)
     # Take log base p of total_dim to get n
@@ -71,7 +71,7 @@ def mps_decomposition(psi: np.ndarray, p: int, max_bond_dim : int = 0) -> MPS:
     for site in range(n - 1):
         # Current shape is (left_bond * p, remaining_dims...)
         # We want matrix with shape (left bond * p) x (p^(N - site - 1))
-        left_size = remaining.shape[0] * remaining_shape[1]
+        left_size = remaining.shape[0] * remaining.shape[1]
 
         if site == 0:
             # First site has shape (p, p^(n-1))
@@ -79,7 +79,7 @@ def mps_decomposition(psi: np.ndarray, p: int, max_bond_dim : int = 0) -> MPS:
             left_bond = 1
         else:
             # Remaining sites have shape (D_left, p, p^{N - site - 1})
-            left_bond = remaining_shape[0]
+            left_bond = remaining.shape[0]
             mat = remaining.reshape(left_bond * p, -1)
     
         # Perform SVD to get u . s . vh
@@ -147,7 +147,7 @@ def mps_to_canonical(mps: MPS) -> CanonicalMPS:
     gammas = [None] * n
     lambdas = []
 
-    for i in range(n - 1, 0, -1)
+    for i in range(n - 1, 0, -1):
         # a should have shape (d_left, p, d_right)
         a = tensors[i]
         d_left, p_dim, d_right = a.shape
@@ -186,7 +186,7 @@ def mps_to_canonical(mps: MPS) -> CanonicalMPS:
 # Given an MPS, contract all tensors to reconstruct the full state vector
 # Returns a state vector of length p^N (probability distribution across all possibilities)
 # Not strictly necessary, but I need a good way to check that my mps conversion is correct
-def mps_to_state (mps: MPS) -> np.ndarray
+def mps_to_state (mps: MPS) -> np.ndarray:
 
     n = mps.n
     p = mps.p
