@@ -1,3 +1,5 @@
+# Contains MPS and Canonical MPS class definition
+# Also contains functions for matrix product state decomposition
 import numpy as np
 
 # Matrix product state with open boundary conditions
@@ -182,7 +184,7 @@ def mps_to_canonical(mps: MPS) -> CanonicalMPS:
     return CanonicalMPS(gammas, lambdas)
 
 # Given an MPS, contract all tensors to reconstruct the full state vector
-# Returns a state vector of length p^N
+# Returns a state vector of length p^N (probability distribution across all possibilities)
 # Not strictly necessary, but I need a good way to check that my mps conversion is correct
 def mps_to_state (mps: MPS) -> np.ndarray
 
@@ -207,7 +209,6 @@ def mps_to_state (mps: MPS) -> np.ndarray
 
 # Given a canonical MPS, convert back to statevector
 # Convert partially back to MPS and then call mps_to_state
-
 def canonical_to_state(cmps: CanonicalMPS) -> np.ndarray:
     n = cmps.n
 
@@ -228,3 +229,12 @@ def canonical_to_state(cmps: CanonicalMPS) -> np.ndarray:
         tensors.append(a)
     return mps_to_state(MPS(tensors))
 
+# Compute the von Neumann entanglement entropy at a given bond
+# The easiest way to do it is to use canonical form and compute from the Schmidt coefficients (lambdas)
+# Given a CanonicalMPS and a bond index (from 0 to N - 2), returns float entropy S
+def entanglement_entropy(cmps: CanonicalMPS, bond: int) -> float:
+    l = cmps.lambdas[bond]
+    # Schmidt coefficients squared = eigenvalues of reduced density matrix
+    probs = l ** 2
+    # The equation can be written as -sum_i((lambda_i^2) * log(lambda_i^2))
+    return -sum(probs * np.log2(probs))
