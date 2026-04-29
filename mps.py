@@ -231,7 +231,7 @@ def canonical_to_state(cmps: CanonicalMPS) -> np.ndarray:
 
 # Compute the von Neumann entanglement entropy at a given bond
 # The easiest way to do it is to use canonical form and compute from the Schmidt coefficients (lambdas)
-# Given a CanonicalMPS and a bond index (from 0 to N - 2), returns float entropy S
+# Given a CanonicalMPS and a bond index (from 0 to N - 2), returns float entropy s
 def entanglement_entropy(cmps: CanonicalMPS, bond: int) -> float:
     l = cmps.lambdas[bond]
     # Schmidt coefficients squared = eigenvalues of reduced density matrix
