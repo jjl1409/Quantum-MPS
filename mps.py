@@ -165,21 +165,14 @@ def mps_to_canonical(mps: MPS) -> CanonicalMPS:
         u, s, vh = np.linalg.svd(mat, full_matrices = False)
 
         d_bond = len(s)
-        # Need to normalize Schmidt coefficients
-        norm = np.linalg.norm(s)
-        if norm > 1e-14:
-            s_normalized = s / norm
-        else:
-            s_normalized = s
         # Gamma[i] = diag(1/lambda) . vh (reshaped)
         # First build gammas as vh reshaped, and then handle lambdas
-        # Note that we need to scale gamma by norm if we are scaling lambda as well
-        gammas[i] = vh.reshape(d_bond, p_dim, d_right) * norm
-        lambdas.insert(0, s_normalized)
+        gammas[i] = vh.reshape(d_bond, p_dim, d_right)
+        lambdas.insert(0, s)
 
         # Absorb u into the next tensor (left tensor)
         # Sum over k for all i, j, l
-        tensors[i - 1] = np.einsum('ijk,kl->ijl', tensors[i - 1], u)
+        tensors[i - 1] = np.einsum('ijk,kl->ijl', tensors[i - 1], u * s[np.newaxis, :])
     
     # Handle the first site gamma
     gammas[0] = tensors[0]
@@ -213,22 +206,7 @@ def mps_to_state (mps: MPS) -> np.ndarray:
 # Convert partially back to MPS and then call mps_to_state
 def canonical_to_state(cmps: CanonicalMPS) -> np.ndarray:
     n = cmps.n()
-
-    # Construct MPS from gamma-lambda with einsum
-    tensors = []
-    for i in range(n):
-        # gammas are constructed as (d_left, p, d_right)
-        g = cmps.gammas[i]
-        # For n - 1 gammas
-        if i < n - 1:
-            l = cmps.lambdas[i]
-            # Reconstruct a(i) from gamma(i) . diag(l(i))
-            # Iterate over all i, j, k
-            a = np.einsum('ijk,k->ijk', g, l)
-        # In the n - 1 gamma case (the rightmost)
-        else:
-            a = g.copy()
-        tensors.append(a)
+    tensors = [g.copy() for g in cmps.gammas]
     return mps_to_state(MPS(tensors))
 
 # Compute the von Neumann entanglement entropy at a given bond
@@ -239,6 +217,9 @@ def entanglement_entropy(cmps: CanonicalMPS, bond: int) -> float:
     # Schmidt coefficients squared = eigenvalues of reduced density matrix
     # Make sure probs is nonzero
     probs = l ** 2
+    # Normalize the probabilities
+    probs = probs / np.sum(probs)
     probs = probs[probs > 1e-14]
     # The equation can be written as -sum_i((lambda_i^2) * log(lambda_i^2))
-    return -sum(probs * np.log2(probs))
+    return -np.sum(probs * np.log2(probs))
+
