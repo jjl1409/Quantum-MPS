@@ -163,12 +163,6 @@ def mps_to_canonical(mps: MPS) -> CanonicalMPS:
         # Perform SVD to get u . s . vh
         # u has shape (m, k), vh has shape (k, n), and s has shape (k) (singular values)
         u, s, vh = np.linalg.svd(mat, full_matrices = False)
-        
-        # Normalize Schmidt coefficients
-        norm = np.linalg.norm(s)
-        # Only normalize if norm is above cutoff
-        if norm > 1e-14:
-            s = s / norm
 
         d_bond = len(s)
 
@@ -177,16 +171,12 @@ def mps_to_canonical(mps: MPS) -> CanonicalMPS:
         gammas[i] = vh.reshape(d_bond, p_dim, d_right)
         lambdas.insert(0, s)
 
-        # Absorb u . diag(s) into the next tensor (left tensor)
+        # Absorb u into the next tensor (left tensor)
         # Sum over k for all i, j, l
-        tensors[i - 1] = np.einsum('ijk,lk->ijl', tensors[i - 1], u * s[np.newaxis, :])
+        tensors[i - 1] = np.einsum('ijk,kl->ijl', tensors[i - 1], u)
     
     # Handle the first site gamma
-    a = tensors[0]
-    # Sum over i, j, k of the conjugate
-    norm = np.sqrt(np.einsum('ijk,ijk->', a, np.conj(a)))
-    a = a / norm
-    gammas[0] = a
+    gammas[0] = tensors[0]
 
     return CanonicalMPS(gammas, lambdas)
 
@@ -242,7 +232,7 @@ def entanglement_entropy(cmps: CanonicalMPS, bond: int) -> float:
     l = cmps.lambdas[bond]
     # Schmidt coefficients squared = eigenvalues of reduced density matrix
     # Make sure probs is nonzero
-    probs = probs[probs > 1e-14]
     probs = l ** 2
+    probs = probs[probs > 1e-14]
     # The equation can be written as -sum_i((lambda_i^2) * log(lambda_i^2))
     return -sum(probs * np.log2(probs))
