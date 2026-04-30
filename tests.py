@@ -31,8 +31,8 @@ cmps_w = mps_to_canonical(mps_decomposition(w))
 cmps_product = mps_to_canonical(mps_decomposition(product))
 # print(ghz)
 # print(canonical_to_state(cmps_ghz))
-# print(w)
-# print(canonical_to_state(cmps_w))
+print(w)
+print(canonical_to_state(cmps_w))
 
 # Entanglement entropy tests
 # for i in range(cmps_w.n() - 1):

@@ -165,11 +165,17 @@ def mps_to_canonical(mps: MPS) -> CanonicalMPS:
         u, s, vh = np.linalg.svd(mat, full_matrices = False)
 
         d_bond = len(s)
-
+        # Need to normalize Schmidt coefficients
+        norm = np.linalg.norm(s)
+        if norm > 1e-14:
+            s_normalized = s / norm
+        else:
+            s_normalized = s
         # Gamma[i] = diag(1/lambda) . vh (reshaped)
         # First build gammas as vh reshaped, and then handle lambdas
-        gammas[i] = vh.reshape(d_bond, p_dim, d_right)
-        lambdas.insert(0, s)
+        # Note that we need to scale gamma by norm if we are scaling lambda as well
+        gammas[i] = vh.reshape(d_bond, p_dim, d_right) * norm
+        lambdas.insert(0, s_normalized)
 
         # Absorb u into the next tensor (left tensor)
         # Sum over k for all i, j, l
